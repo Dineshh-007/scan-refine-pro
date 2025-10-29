@@ -4,6 +4,9 @@ import { Card } from "@/components/ui/card";
 import { Brain, Upload, ArrowLeft, Download } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { DistortionChatbot } from "@/components/DistortionChatbot";
+import { DistortionHeatmap } from "@/components/DistortionHeatmap";
+import { ImageComparison } from "@/components/ImageComparison";
 
 const Process = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -11,6 +14,7 @@ const Process = () => {
   const [correctedUrl, setCorrectedUrl] = useState<string>("");
   const [processing, setProcessing] = useState(false);
   const [correctionMethod, setCorrectionMethod] = useState<"bilinear" | "polynomial" | "ai">("bilinear");
+  const [distortionSeverity, setDistortionSeverity] = useState<number>(0);
   const { toast } = useToast();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,13 +29,15 @@ const Process = () => {
 
   const handleProcess = () => {
     setProcessing(true);
-    // Simulate processing
+    // Simulate processing and distortion detection
     setTimeout(() => {
+      const randomSeverity = Math.floor(Math.random() * 40) + 15; // 15-55%
+      setDistortionSeverity(randomSeverity);
       setCorrectedUrl(previewUrl); // In real app, this would be the corrected image
       setProcessing(false);
       toast({
         title: "Correction Complete",
-        description: `Image corrected using ${correctionMethod} method`,
+        description: `Image corrected using ${correctionMethod} method. Distortion severity: ${randomSeverity}%`,
       });
     }, 3000);
   };
@@ -107,9 +113,27 @@ const Process = () => {
                 </div>
               </Card>
 
+              {/* Distortion Heatmap */}
+              <div className="mb-6">
+                <DistortionHeatmap 
+                  imageUrl={previewUrl} 
+                  distortionSeverity={distortionSeverity || 25}
+                />
+              </div>
+
               {/* Image Comparison */}
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <Card className="p-6">
+              {correctedUrl && (
+                <div className="mb-6">
+                  <ImageComparison 
+                    originalUrl={previewUrl}
+                    correctedUrl={correctedUrl}
+                  />
+                </div>
+              )}
+
+              {/* Original and Corrected Side by Side */}
+              {!correctedUrl && (
+                <Card className="p-6 mb-6">
                   <h3 className="text-lg font-semibold mb-4">Original Image</h3>
                   <div className="aspect-square bg-muted rounded-lg overflow-hidden">
                     <img
@@ -118,25 +142,11 @@ const Process = () => {
                       className="w-full h-full object-contain"
                     />
                   </div>
+                  <p className="text-center text-muted-foreground mt-4">
+                    {processing ? "Processing..." : "Click 'Process Image' to start correction"}
+                  </p>
                 </Card>
-
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Corrected Image</h3>
-                  <div className="aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center">
-                    {correctedUrl ? (
-                      <img
-                        src={correctedUrl}
-                        alt="Corrected MRI"
-                        className="w-full h-full object-contain"
-                      />
-                    ) : (
-                      <p className="text-muted-foreground">
-                        {processing ? "Processing..." : "Click 'Process Image' to start"}
-                      </p>
-                    )}
-                  </div>
-                </Card>
-              </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-4 justify-center">
@@ -177,6 +187,15 @@ const Process = () => {
           )}
         </div>
       </div>
+
+      {/* Chatbot */}
+      <DistortionChatbot 
+        distortionData={{
+          severity: distortionSeverity,
+          type: "Radial distortion",
+          method: correctionMethod,
+        }}
+      />
     </div>
   );
 };

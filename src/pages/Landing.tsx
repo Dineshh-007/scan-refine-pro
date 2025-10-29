@@ -70,9 +70,11 @@ const Landing = () => {
                 Start Correcting Images
               </Button>
             </Link>
-            <Button size="lg" variant="outline">
-              View Demo
-            </Button>
+            <Link to="/process">
+              <Button size="lg" variant="outline">
+                View Demo
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

@@ -14,9 +14,11 @@ const Dashboard = () => {
             <span className="text-xl font-bold">MRI Corrector Pro</span>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon">
-              <Settings className="h-5 w-5" />
-            </Button>
+            <Link to="/auth">
+              <Button variant="ghost" size="icon">
+                <Settings className="h-5 w-5" />
+              </Button>
+            </Link>
             <Link to="/auth">
               <Button variant="outline">Logout</Button>
             </Link>
