@@ -46,13 +46,15 @@ const Dashboard = () => {
             </Card>
           </Link>
 
-          <Card className="p-6 hover:shadow-[var(--shadow-medical)] transition-shadow cursor-pointer group">
-            <History className="h-12 w-12 text-accent mb-4 group-hover:scale-110 transition-transform" />
-            <h3 className="text-xl font-semibold mb-2">History</h3>
-            <p className="text-muted-foreground text-sm">
-              View past corrections
-            </p>
-          </Card>
+          <Link to="/reports">
+            <Card className="p-6 hover:shadow-[var(--shadow-medical)] transition-shadow cursor-pointer group">
+              <History className="h-12 w-12 text-accent mb-4 group-hover:scale-110 transition-transform" />
+              <h3 className="text-xl font-semibold mb-2">History</h3>
+              <p className="text-muted-foreground text-sm">
+                View past corrections
+              </p>
+            </Card>
+          </Link>
 
           <Link to="/hospitals">
             <Card className="p-6 hover:shadow-[var(--shadow-medical)] transition-shadow cursor-pointer group">
@@ -64,13 +66,15 @@ const Dashboard = () => {
             </Card>
           </Link>
 
-          <Card className="p-6 hover:shadow-[var(--shadow-medical)] transition-shadow cursor-pointer group">
-            <FileText className="h-12 w-12 text-accent mb-4 group-hover:scale-110 transition-transform" />
-            <h3 className="text-xl font-semibold mb-2">Reports</h3>
-            <p className="text-muted-foreground text-sm">
-              Access correction reports
-            </p>
-          </Card>
+          <Link to="/reports">
+            <Card className="p-6 hover:shadow-[var(--shadow-medical)] transition-shadow cursor-pointer group">
+              <FileText className="h-12 w-12 text-accent mb-4 group-hover:scale-110 transition-transform" />
+              <h3 className="text-xl font-semibold mb-2">Reports</h3>
+              <p className="text-muted-foreground text-sm">
+                Access correction reports
+              </p>
+            </Card>
+          </Link>
         </div>
 
         {/* Recent Activity */}

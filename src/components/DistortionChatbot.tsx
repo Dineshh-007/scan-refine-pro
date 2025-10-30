@@ -25,7 +25,7 @@ export const DistortionChatbot = ({ distortionData }: DistortionChatbotProps) =>
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hello! I'm your MRI distortion analysis assistant. I can help you understand the distortions in your images and recommend the best correction methods. How can I help you today?",
+      content: "Hello! I'm your MRI distortion analysis assistant. I can help you understand the distortions in your images, explain the differences between original and corrected versions, and recommend the best correction methods. The colored overlay shows distortion severity: red indicates high distortion, yellow shows moderate distortion, and the corrected side shows the improved version. How can I help you today?",
     },
   ]);
   const [input, setInput] = useState("");
