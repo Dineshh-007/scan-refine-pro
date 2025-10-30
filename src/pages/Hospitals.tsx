@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Brain, ArrowLeft, MapPin, Navigation } from "lucide-react";
 import { Link } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -29,6 +28,11 @@ const Hospitals = () => {
   const [loading, setLoading] = useState(true);
   const [sortedHospitals, setSortedHospitals] = useState<Hospital[]>([]);
   const [locationError, setLocationError] = useState<string>("");
+
+  // Leaflet map refs
+  const mapNodeRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Mock hospital data - in real app, this would come from an API
   const hospitals: Hospital[] = [
@@ -89,6 +93,43 @@ const Hospitals = () => {
       setLoading(false);
     }
   }, []);
+
+  // Initialize and update Leaflet map
+  useEffect(() => {
+    if (loading) return;
+
+    // Initialize map once
+    if (!mapRef.current && mapNodeRef.current) {
+      mapRef.current = L.map(mapNodeRef.current, {
+        center: userLocation as unknown as L.LatLngExpression,
+        zoom: 13,
+        zoomControl: true,
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(mapRef.current);
+
+      markersLayerRef.current = L.layerGroup().addTo(mapRef.current);
+    }
+
+    if (!mapRef.current || !markersLayerRef.current) return;
+
+    // Update center
+    mapRef.current.setView(userLocation, 13);
+
+    // Clear and re-add markers
+    markersLayerRef.current.clearLayers();
+
+    // User marker
+    L.marker(userLocation).addTo(markersLayerRef.current).bindPopup('Your Location');
+
+    // Hospital markers
+    sortedHospitals.forEach((h) => {
+      const popupHtml = `<div class="min-w-[200px]"><strong>${h.name}</strong><br/><span>${h.address}</span>${h.distance ? `<br/><em>${h.distance.toFixed(1)} km away</em>` : ''}<br/><a href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}" target="_blank" rel="noopener noreferrer">Directions</a></div>`;
+      L.marker([h.lat, h.lng]).addTo(markersLayerRef.current as L.LayerGroup).bindPopup(popupHtml);
+    });
+  }, [loading, userLocation, sortedHospitals]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
@@ -172,49 +213,7 @@ const Hospitals = () => {
           <div className="lg:col-span-2">
             <Card className="p-4 h-[600px]">
               {!loading ? (
-                <MapContainer
-                  center={userLocation}
-                  zoom={13}
-                  scrollWheelZoom={true}
-                  className="h-full w-full rounded-lg"
-                  key={`${userLocation[0]}-${userLocation[1]}`}
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <Marker position={userLocation}>
-                    <Popup>
-                      <div className="text-center">
-                        <p className="font-semibold text-primary">Your Location</p>
-                      </div>
-                    </Popup>
-                  </Marker>
-                  {sortedHospitals.map((hospital) => (
-                    <Marker key={hospital.id} position={[hospital.lat, hospital.lng]}>
-                      <Popup>
-                        <div className="min-w-[200px]">
-                          <h3 className="font-semibold mb-1">{hospital.name}</h3>
-                          <p className="text-sm text-muted-foreground mb-2">{hospital.address}</p>
-                          {hospital.distance && (
-                            <p className="text-xs text-primary mb-2">
-                              {hospital.distance.toFixed(1)} km away
-                            </p>
-                          )}
-                          <Button variant="medical" size="sm" asChild className="w-full">
-                            <a
-                              href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.lat},${hospital.lng}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Directions
-                            </a>
-                          </Button>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
+                <div ref={mapNodeRef} className="h-full w-full rounded-lg" />
               ) : (
                 <div className="h-full flex items-center justify-center">
                   <p className="text-muted-foreground">Loading map and finding hospitals near you...</p>
