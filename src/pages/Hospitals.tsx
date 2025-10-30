@@ -24,7 +24,7 @@ interface Hospital {
 }
 
 const Hospitals = () => {
-  const [userLocation, setUserLocation] = useState<[number, number]>([13.0827, 80.2707]); // Default: Chennai
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortedHospitals, setSortedHospitals] = useState<Hospital[]>([]);
   const [locationError, setLocationError] = useState<string>("");
@@ -33,17 +33,6 @@ const Hospitals = () => {
   const mapNodeRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
-
-  // Mock hospital data - in real app, this would come from an API
-  const hospitals: Hospital[] = [
-    { id: 1, name: "Apollo Hospital", lat: 13.0569, lng: 80.2425, address: "Greams Road, Chennai" },
-    { id: 2, name: "Fortis Malar Hospital", lat: 13.0569, lng: 80.2569, address: "Adyar, Chennai" },
-    { id: 3, name: "MIOT Hospital", lat: 13.0118, lng: 80.2184, address: "Manapakkam, Chennai" },
-    { id: 4, name: "Kauvery Hospital", lat: 13.0338, lng: 80.2275, address: "Alwarpet, Chennai" },
-    { id: 5, name: "Vijaya Hospital", lat: 13.0253, lng: 80.2250, address: "Vadapalani, Chennai" },
-    { id: 6, name: "Global Hospitals", lat: 13.0094, lng: 80.2085, address: "Perumbakkam, Chennai" },
-    { id: 7, name: "SIMS Hospital", lat: 13.0205, lng: 80.2154, address: "Vadapalani, Chennai" },
-  ];
 
   // Calculate distance between two coordinates (Haversine formula)
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -58,45 +47,73 @@ const Hospitals = () => {
     return R * c;
   };
 
+  // Fetch hospitals from Overpass API
+  const fetchNearbyHospitals = async (lat: number, lon: number) => {
+    const radius = 5000; // 5km radius
+    const query = `
+      [out:json];
+      (
+        node["amenity"="hospital"](around:${radius},${lat},${lon});
+        way["amenity"="hospital"](around:${radius},${lat},${lon});
+        node["amenity"="clinic"](around:${radius},${lat},${lon});
+      );
+      out body;
+      >;
+      out skel qt;
+    `;
+
+    try {
+      const response = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: query,
+      });
+      const data = await response.json();
+      
+      const hospitals: Hospital[] = data.elements
+        .filter((el: any) => el.tags?.name)
+        .map((el: any, idx: number) => ({
+          id: idx + 1,
+          name: el.tags.name,
+          lat: el.lat || el.center?.lat,
+          lng: el.lon || el.center?.lon,
+          address: el.tags['addr:full'] || el.tags['addr:street'] || 'Address not available',
+          distance: calculateDistance(lat, lon, el.lat || el.center?.lat, el.lon || el.center?.lon)
+        }))
+        .filter((h: Hospital) => h.lat && h.lng)
+        .sort((a, b) => (a.distance || 0) - (b.distance || 0))
+        .slice(0, 10); // Top 10 closest
+
+      setSortedHospitals(hospitals);
+    } catch (error) {
+      console.error('Error fetching hospitals:', error);
+      setLocationError('Failed to load nearby hospitals');
+    }
+  };
+
   useEffect(() => {
-    // Get user location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const newLocation: [number, number] = [position.coords.latitude, position.coords.longitude];
           setUserLocation(newLocation);
-          
-          // Calculate distances and sort hospitals
-          const hospitalsWithDistance = hospitals.map(hospital => ({
-            ...hospital,
-            distance: calculateDistance(
-              newLocation[0],
-              newLocation[1],
-              hospital.lat,
-              hospital.lng
-            )
-          })).sort((a, b) => (a.distance || 0) - (b.distance || 0));
-          
-          setSortedHospitals(hospitalsWithDistance);
+          await fetchNearbyHospitals(newLocation[0], newLocation[1]);
           setLoading(false);
         },
         (error) => {
           console.error("Geolocation error:", error);
-          setLocationError("Unable to get your location. Showing default hospitals.");
-          setSortedHospitals(hospitals);
+          setLocationError("Please enable location access to find nearby hospitals");
           setLoading(false);
         }
       );
     } else {
-      setLocationError("Geolocation is not supported by your browser.");
-      setSortedHospitals(hospitals);
+      setLocationError("Geolocation is not supported by your browser");
       setLoading(false);
     }
   }, []);
 
   // Initialize and update Leaflet map
   useEffect(() => {
-    if (loading) return;
+    if (loading || !userLocation) return;
 
     // Initialize map once
     if (!mapRef.current && mapNodeRef.current) {
