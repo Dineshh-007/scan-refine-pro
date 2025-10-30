@@ -183,8 +183,6 @@ const Hospitals = () => {
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                  
-                  {/* User location marker */}
                   <Marker position={userLocation}>
                     <Popup>
                       <div className="text-center">
@@ -192,8 +190,6 @@ const Hospitals = () => {
                       </div>
                     </Popup>
                   </Marker>
-
-                  {/* Hospital markers */}
                   {sortedHospitals.map((hospital) => (
                     <Marker key={hospital.id} position={[hospital.lat, hospital.lng]}>
                       <Popup>
