@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Brain, ArrowLeft, MapPin } from "lucide-react";
+import { Brain, ArrowLeft, MapPin, Navigation } from "lucide-react";
 import { Link } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -21,20 +21,14 @@ interface Hospital {
   lat: number;
   lng: number;
   address: string;
+  distance?: number;
 }
-
-// Component to update map center
-const ChangeView = ({ center }: { center: [number, number] }) => {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center);
-  }, [center, map]);
-  return null;
-};
 
 const Hospitals = () => {
   const [userLocation, setUserLocation] = useState<[number, number]>([13.0827, 80.2707]); // Default: Chennai
   const [loading, setLoading] = useState(true);
+  const [sortedHospitals, setSortedHospitals] = useState<Hospital[]>([]);
+  const [locationError, setLocationError] = useState<string>("");
 
   // Mock hospital data - in real app, this would come from an API
   const hospitals: Hospital[] = [
@@ -43,21 +37,55 @@ const Hospitals = () => {
     { id: 3, name: "MIOT Hospital", lat: 13.0118, lng: 80.2184, address: "Manapakkam, Chennai" },
     { id: 4, name: "Kauvery Hospital", lat: 13.0338, lng: 80.2275, address: "Alwarpet, Chennai" },
     { id: 5, name: "Vijaya Hospital", lat: 13.0253, lng: 80.2250, address: "Vadapalani, Chennai" },
+    { id: 6, name: "Global Hospitals", lat: 13.0094, lng: 80.2085, address: "Perumbakkam, Chennai" },
+    { id: 7, name: "SIMS Hospital", lat: 13.0205, lng: 80.2154, address: "Vadapalani, Chennai" },
   ];
+
+  // Calculate distance between two coordinates (Haversine formula)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
 
   useEffect(() => {
     // Get user location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation([position.coords.latitude, position.coords.longitude]);
+          const newLocation: [number, number] = [position.coords.latitude, position.coords.longitude];
+          setUserLocation(newLocation);
+          
+          // Calculate distances and sort hospitals
+          const hospitalsWithDistance = hospitals.map(hospital => ({
+            ...hospital,
+            distance: calculateDistance(
+              newLocation[0],
+              newLocation[1],
+              hospital.lat,
+              hospital.lng
+            )
+          })).sort((a, b) => (a.distance || 0) - (b.distance || 0));
+          
+          setSortedHospitals(hospitalsWithDistance);
           setLoading(false);
         },
-        () => {
+        (error) => {
+          console.error("Geolocation error:", error);
+          setLocationError("Unable to get your location. Showing default hospitals.");
+          setSortedHospitals(hospitals);
           setLoading(false);
         }
       );
     } else {
+      setLocationError("Geolocation is not supported by your browser.");
+      setSortedHospitals(hospitals);
       setLoading(false);
     }
   }, []);
@@ -87,6 +115,12 @@ const Hospitals = () => {
           <p className="text-muted-foreground">
             Locate nearby hospitals and medical centers for further consultation
           </p>
+          {locationError && (
+            <p className="text-yellow-600 text-sm mt-2 flex items-center gap-2">
+              <Navigation className="h-4 w-4" />
+              {locationError}
+            </p>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -95,28 +129,42 @@ const Hospitals = () => {
             <Card className="p-4">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
-                Nearby Hospitals
+                Nearby Hospitals ({sortedHospitals.length})
               </h2>
-              <div className="space-y-3">
-                {hospitals.map((hospital) => (
-                  <Card
-                    key={hospital.id}
-                    className="p-4 hover:shadow-[var(--shadow-medical)] transition-shadow cursor-pointer"
-                  >
-                    <h3 className="font-semibold mb-1">{hospital.name}</h3>
-                    <p className="text-sm text-muted-foreground">{hospital.address}</p>
-                    <Button variant="link" className="p-0 h-auto mt-2" asChild>
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.lat},${hospital.lng}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Get Directions →
-                      </a>
-                    </Button>
-                  </Card>
-                ))}
-              </div>
+              {loading ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">Finding hospitals near you...</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                  {sortedHospitals.map((hospital) => (
+                    <Card
+                      key={hospital.id}
+                      className="p-4 hover:shadow-[var(--shadow-medical)] transition-shadow"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-semibold">{hospital.name}</h3>
+                        {hospital.distance && (
+                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                            {hospital.distance.toFixed(1)} km
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-3">{hospital.address}</p>
+                      <Button variant="medical" size="sm" asChild className="w-full">
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.lat},${hospital.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Navigation className="mr-2 h-4 w-4" />
+                          Get Directions
+                        </a>
+                      </Button>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
 
@@ -127,19 +175,45 @@ const Hospitals = () => {
                 <MapContainer
                   center={userLocation}
                   zoom={13}
+                  scrollWheelZoom={true}
                   className="h-full w-full rounded-lg"
+                  key={`${userLocation[0]}-${userLocation[1]}`}
                 >
-                  <ChangeView center={userLocation} />
                   <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                  {hospitals.map((hospital) => (
+                  
+                  {/* User location marker */}
+                  <Marker position={userLocation}>
+                    <Popup>
+                      <div className="text-center">
+                        <p className="font-semibold text-primary">Your Location</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+
+                  {/* Hospital markers */}
+                  {sortedHospitals.map((hospital) => (
                     <Marker key={hospital.id} position={[hospital.lat, hospital.lng]}>
                       <Popup>
-                        <div className="text-center">
-                          <h3 className="font-semibold">{hospital.name}</h3>
-                          <p className="text-sm text-muted-foreground">{hospital.address}</p>
+                        <div className="min-w-[200px]">
+                          <h3 className="font-semibold mb-1">{hospital.name}</h3>
+                          <p className="text-sm text-muted-foreground mb-2">{hospital.address}</p>
+                          {hospital.distance && (
+                            <p className="text-xs text-primary mb-2">
+                              {hospital.distance.toFixed(1)} km away
+                            </p>
+                          )}
+                          <Button variant="medical" size="sm" asChild className="w-full">
+                            <a
+                              href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.lat},${hospital.lng}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Directions
+                            </a>
+                          </Button>
                         </div>
                       </Popup>
                     </Marker>
@@ -147,7 +221,7 @@ const Hospitals = () => {
                 </MapContainer>
               ) : (
                 <div className="h-full flex items-center justify-center">
-                  <p className="text-muted-foreground">Loading map...</p>
+                  <p className="text-muted-foreground">Loading map and finding hospitals near you...</p>
                 </div>
               )}
             </Card>
