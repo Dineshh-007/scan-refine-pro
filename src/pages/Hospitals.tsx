@@ -21,6 +21,7 @@ interface Hospital {
   lng: number;
   address: string;
   distance?: number;
+  type: 'hospital' | 'clinic' | 'health_centre' | 'doctors';
 }
 
 const Hospitals = () => {
@@ -78,14 +79,26 @@ const Hospitals = () => {
       
       const hospitals: Hospital[] = data.elements
         .filter((el: any) => el.tags?.name)
-        .map((el: any, idx: number) => ({
-          id: idx + 1,
-          name: el.tags.name,
-          lat: el.lat || el.center?.lat,
-          lng: el.lon || el.center?.lon,
-          address: el.tags['addr:full'] || el.tags['addr:street'] || 'Address not available',
-          distance: calculateDistance(lat, lon, el.lat || el.center?.lat, el.lon || el.center?.lon)
-        }))
+        .map((el: any, idx: number) => {
+          let type: 'hospital' | 'clinic' | 'health_centre' | 'doctors' = 'hospital';
+          if (el.tags?.amenity === 'clinic' || el.tags?.healthcare === 'clinic') {
+            type = 'clinic';
+          } else if (el.tags?.healthcare === 'centre') {
+            type = 'health_centre';
+          } else if (el.tags?.amenity === 'doctors') {
+            type = 'doctors';
+          }
+          
+          return {
+            id: idx + 1,
+            name: el.tags.name,
+            lat: el.lat || el.center?.lat,
+            lng: el.lon || el.center?.lon,
+            address: el.tags['addr:full'] || el.tags['addr:street'] || 'Address not available',
+            distance: calculateDistance(lat, lon, el.lat || el.center?.lat, el.lon || el.center?.lon),
+            type
+          };
+        })
         .filter((h: Hospital) => h.lat && h.lng)
         .sort((a, b) => (a.distance || 0) - (b.distance || 0))
         .slice(0, 10); // Top 10 closest
@@ -148,8 +161,8 @@ const Hospitals = () => {
     // User marker (blue)
     L.marker(userLocation).addTo(markersLayerRef.current).bindPopup('Your Location');
 
-    // Create red icon for hospitals
-    const redIcon = L.icon({
+    // Create colored icons for different facility types
+    const hospitalIcon = L.icon({
       iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
       shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
       iconSize: [25, 41],
@@ -158,10 +171,49 @@ const Hospitals = () => {
       shadowSize: [41, 41]
     });
 
-    // Hospital markers (red)
+    const clinicIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+
+    const healthCentreIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+
+    const doctorsIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+
+    // Get icon based on facility type
+    const getIconForType = (type: string) => {
+      switch(type) {
+        case 'hospital': return hospitalIcon;
+        case 'clinic': return clinicIcon;
+        case 'health_centre': return healthCentreIcon;
+        case 'doctors': return doctorsIcon;
+        default: return hospitalIcon;
+      }
+    };
+
+    // Medical facility markers with different colors
     sortedHospitals.forEach((h) => {
-      const popupHtml = `<div class="min-w-[200px]"><strong>${h.name}</strong><br/><span>${h.address}</span>${h.distance ? `<br/><em>${h.distance.toFixed(1)} km away</em>` : ''}<br/><a href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}" target="_blank" rel="noopener noreferrer">Directions</a></div>`;
-      L.marker([h.lat, h.lng], { icon: redIcon }).addTo(markersLayerRef.current as L.LayerGroup).bindPopup(popupHtml);
+      const facilityType = h.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const popupHtml = `<div class="min-w-[200px]"><strong>${h.name}</strong><br/><span class="text-xs text-gray-600">${facilityType}</span><br/><span>${h.address}</span>${h.distance ? `<br/><em>${h.distance.toFixed(1)} km away</em>` : ''}<br/><a href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}" target="_blank" rel="noopener noreferrer">Directions</a></div>`;
+      L.marker([h.lat, h.lng], { icon: getIconForType(h.type) }).addTo(markersLayerRef.current as L.LayerGroup).bindPopup(popupHtml);
     });
   }, [loading, userLocation, sortedHospitals]);
 
@@ -204,8 +256,26 @@ const Hospitals = () => {
             <Card className="p-4">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
-                Nearby Hospitals ({sortedHospitals.length})
+                Medical Facilities ({sortedHospitals.length})
               </h2>
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg space-y-1 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <span>Hospital</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <span>Clinic</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                  <span>Health Centre</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-violet-500"></div>
+                  <span>Doctors</span>
+                </div>
+              </div>
               {loading ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">Finding hospitals near you...</p>
@@ -218,7 +288,17 @@ const Hospitals = () => {
                       className="p-4 hover:shadow-[var(--shadow-medical)] transition-shadow"
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-semibold">{hospital.name}</h3>
+                        <div>
+                          <h3 className="font-semibold">{hospital.name}</h3>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            hospital.type === 'hospital' ? 'bg-red-100 text-red-700' :
+                            hospital.type === 'clinic' ? 'bg-green-100 text-green-700' :
+                            hospital.type === 'health_centre' ? 'bg-orange-100 text-orange-700' :
+                            'bg-violet-100 text-violet-700'
+                          }`}>
+                            {hospital.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </span>
+                        </div>
                         {hospital.distance && (
                           <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
                             {hospital.distance.toFixed(1)} km
