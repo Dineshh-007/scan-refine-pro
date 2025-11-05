@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DistortionChatbot } from "@/components/DistortionChatbot";
 import { DistortionHeatmap } from "@/components/DistortionHeatmap";
 import { ImageComparison } from "@/components/ImageComparison";
+import { jsPDF } from "jspdf";
 
 const Process = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -180,13 +181,14 @@ const Process = () => {
                       variant="outline" 
                       size="lg"
                       onClick={() => {
-                        const reportContent = `MRI Correction Report\n\nMethod: ${correctionMethod}\nDistortion Severity: ${distortionSeverity}%\nDate: ${new Date().toLocaleDateString()}`;
-                        const blob = new Blob([reportContent], { type: 'text/plain' });
-                        const link = document.createElement('a');
-                        link.href = URL.createObjectURL(blob);
-                        link.download = `report_${Date.now()}.txt`;
-                        link.click();
-                        URL.revokeObjectURL(link.href);
+                        const doc = new jsPDF();
+                        doc.setFontSize(16);
+                        doc.text("MRI Correction Report", 14, 20);
+                        doc.setFontSize(12);
+                        doc.text(`Method: ${correctionMethod}`, 14, 35);
+                        doc.text(`Distortion Severity: ${distortionSeverity}%`, 14, 45);
+                        doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 55);
+                        doc.save(`report_${Date.now()}.pdf`);
                       }}
                     >
                       Generate Report

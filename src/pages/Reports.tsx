@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Brain, ArrowLeft, FileText, Download, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
+import { jsPDF } from "jspdf";
 
 const Reports = () => {
   const sampleReports = [
@@ -83,13 +84,15 @@ const Reports = () => {
                     <Button 
                       variant="medical"
                       onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = '#';
-                        link.download = `Report_${report.id}_${report.date}.pdf`;
-                        const blob = new Blob(['MRI Correction Report'], { type: 'application/pdf' });
-                        link.href = URL.createObjectURL(blob);
-                        link.click();
-                        URL.revokeObjectURL(link.href);
+                        const doc = new jsPDF();
+                        doc.setFontSize(16);
+                        doc.text("MRI Correction Report", 14, 20);
+                        doc.setFontSize(12);
+                        doc.text(`Report ID: ${report.id}`, 14, 35);
+                        doc.text(`Date: ${report.date}`, 14, 45);
+                        doc.text(`Method: ${report.method}`, 14, 55);
+                        doc.text(`Distortion Severity: ${report.severity}`, 14, 65);
+                        doc.save(`Report_${report.id}_${report.date}.pdf`);
                       }}
                     >
                       <Download className="mr-2 h-4 w-4" />

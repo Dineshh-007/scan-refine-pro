@@ -2,6 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Brain, Upload, History, MapPin, FileText, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
+import barrelImg from "@/assets/distortion_barrel.jpg";
+import pincushionImg from "@/assets/distortion_pincushion.jpg";
+import waveImg from "@/assets/distortion_wave.jpg";
 
 const Dashboard = () => {
   return (
@@ -84,32 +87,43 @@ const Dashboard = () => {
             Learn to identify common distortion patterns in MRI images
           </p>
           <div className="grid md:grid-cols-3 gap-6">
-            <div className="space-y-3">
-              <div className="aspect-square bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center border-2 border-dashed border-primary/30">
-                <div className="text-center p-4">
-                  <p className="font-semibold text-sm">Barrel Distortion</p>
-                  <p className="text-xs text-muted-foreground mt-2">Edges curve outward</p>
-                </div>
+            <div className="space-y-2">
+              <div className="aspect-square rounded-lg overflow-hidden bg-muted">
+                <img
+                  src={barrelImg}
+                  alt="MRI barrel distortion example with edges bulging outward"
+                  loading="lazy"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <p className="text-sm text-muted-foreground">Common in wide-angle MRI scans</p>
+              <p className="font-semibold text-sm">Barrel Distortion</p>
+              <p className="text-sm text-muted-foreground">Edges curve outward</p>
             </div>
-            <div className="space-y-3">
-              <div className="aspect-square bg-gradient-to-br from-accent/20 to-primary/20 rounded-lg flex items-center justify-center border-2 border-dashed border-accent/30">
-                <div className="text-center p-4">
-                  <p className="font-semibold text-sm">Pincushion Distortion</p>
-                  <p className="text-xs text-muted-foreground mt-2">Edges curve inward</p>
-                </div>
+            
+            <div className="space-y-2">
+              <div className="aspect-square rounded-lg overflow-hidden bg-muted">
+                <img
+                  src={pincushionImg}
+                  alt="MRI pincushion distortion example with edges bending inward"
+                  loading="lazy"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <p className="text-sm text-muted-foreground">Often seen in telephoto imaging</p>
+              <p className="font-semibold text-sm">Pincushion Distortion</p>
+              <p className="text-sm text-muted-foreground">Edges curve inward</p>
             </div>
-            <div className="space-y-3">
-              <div className="aspect-square bg-gradient-to-br from-primary/20 to-secondary/40 rounded-lg flex items-center justify-center border-2 border-dashed border-primary/30">
-                <div className="text-center p-4">
-                  <p className="font-semibold text-sm">Wave Distortion</p>
-                  <p className="text-xs text-muted-foreground mt-2">Irregular warping</p>
-                </div>
+
+            <div className="space-y-2">
+              <div className="aspect-square rounded-lg overflow-hidden bg-muted">
+                <img
+                  src={waveImg}
+                  alt="MRI wave distortion example with ripple-like warping"
+                  loading="lazy"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <p className="text-sm text-muted-foreground">Caused by magnetic field inhomogeneity</p>
+              <p className="font-semibold text-sm">Wave Distortion</p>
+              <p className="text-sm text-muted-foreground">Irregular warping</p>
             </div>
           </div>
         </Card>
