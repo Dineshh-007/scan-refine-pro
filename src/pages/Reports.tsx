@@ -80,7 +80,18 @@ const Reports = () => {
                     <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-600 text-sm font-medium">
                       {report.status}
                     </span>
-                    <Button variant="medical">
+                    <Button 
+                      variant="medical"
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = '#';
+                        link.download = `Report_${report.id}_${report.date}.pdf`;
+                        const blob = new Blob(['MRI Correction Report'], { type: 'application/pdf' });
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+                        URL.revokeObjectURL(link.href);
+                      }}
+                    >
                       <Download className="mr-2 h-4 w-4" />
                       Download
                     </Button>

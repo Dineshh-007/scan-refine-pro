@@ -56,6 +56,13 @@ const Hospitals = () => {
         node["amenity"="hospital"](around:${radius},${lat},${lon});
         way["amenity"="hospital"](around:${radius},${lat},${lon});
         node["amenity"="clinic"](around:${radius},${lat},${lon});
+        way["amenity"="clinic"](around:${radius},${lat},${lon});
+        node["amenity"="doctors"](around:${radius},${lat},${lon});
+        way["amenity"="doctors"](around:${radius},${lat},${lon});
+        node["healthcare"="centre"](around:${radius},${lat},${lon});
+        way["healthcare"="centre"](around:${radius},${lat},${lon});
+        node["healthcare"="clinic"](around:${radius},${lat},${lon});
+        way["healthcare"="clinic"](around:${radius},${lat},${lon});
       );
       out body;
       >;
@@ -138,13 +145,23 @@ const Hospitals = () => {
     // Clear and re-add markers
     markersLayerRef.current.clearLayers();
 
-    // User marker
+    // User marker (blue)
     L.marker(userLocation).addTo(markersLayerRef.current).bindPopup('Your Location');
 
-    // Hospital markers
+    // Create red icon for hospitals
+    const redIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+
+    // Hospital markers (red)
     sortedHospitals.forEach((h) => {
       const popupHtml = `<div class="min-w-[200px]"><strong>${h.name}</strong><br/><span>${h.address}</span>${h.distance ? `<br/><em>${h.distance.toFixed(1)} km away</em>` : ''}<br/><a href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}" target="_blank" rel="noopener noreferrer">Directions</a></div>`;
-      L.marker([h.lat, h.lng]).addTo(markersLayerRef.current as L.LayerGroup).bindPopup(popupHtml);
+      L.marker([h.lat, h.lng], { icon: redIcon }).addTo(markersLayerRef.current as L.LayerGroup).bindPopup(popupHtml);
     });
   }, [loading, userLocation, sortedHospitals]);
 

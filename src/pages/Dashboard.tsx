@@ -77,6 +77,43 @@ const Dashboard = () => {
           </Link>
         </div>
 
+        {/* Sample Distorted Images */}
+        <Card className="p-6 mb-12">
+          <h2 className="text-2xl font-bold mb-6">Understanding MRI Distortions</h2>
+          <p className="text-muted-foreground mb-6">
+            Learn to identify common distortion patterns in MRI images
+          </p>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="space-y-3">
+              <div className="aspect-square bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center border-2 border-dashed border-primary/30">
+                <div className="text-center p-4">
+                  <p className="font-semibold text-sm">Barrel Distortion</p>
+                  <p className="text-xs text-muted-foreground mt-2">Edges curve outward</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">Common in wide-angle MRI scans</p>
+            </div>
+            <div className="space-y-3">
+              <div className="aspect-square bg-gradient-to-br from-accent/20 to-primary/20 rounded-lg flex items-center justify-center border-2 border-dashed border-accent/30">
+                <div className="text-center p-4">
+                  <p className="font-semibold text-sm">Pincushion Distortion</p>
+                  <p className="text-xs text-muted-foreground mt-2">Edges curve inward</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">Often seen in telephoto imaging</p>
+            </div>
+            <div className="space-y-3">
+              <div className="aspect-square bg-gradient-to-br from-primary/20 to-secondary/40 rounded-lg flex items-center justify-center border-2 border-dashed border-primary/30">
+                <div className="text-center p-4">
+                  <p className="font-semibold text-sm">Wave Distortion</p>
+                  <p className="text-xs text-muted-foreground mt-2">Irregular warping</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">Caused by magnetic field inhomogeneity</p>
+            </div>
+          </div>
+        </Card>
+
         {/* Recent Activity */}
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-6">Recent Activity</h2>

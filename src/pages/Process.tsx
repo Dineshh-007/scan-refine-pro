@@ -161,11 +161,34 @@ const Process = () => {
                   </Button>
                 ) : (
                   <>
-                    <Button variant="medical" size="lg">
+                    <Button 
+                      variant="medical" 
+                      size="lg"
+                      onClick={() => {
+                        if (correctedUrl) {
+                          const link = document.createElement('a');
+                          link.href = correctedUrl;
+                          link.download = `corrected_mri_${Date.now()}.png`;
+                          link.click();
+                        }
+                      }}
+                    >
                       <Download className="mr-2 h-5 w-5" />
                       Download Corrected Image
                     </Button>
-                    <Button variant="outline" size="lg">
+                    <Button 
+                      variant="outline" 
+                      size="lg"
+                      onClick={() => {
+                        const reportContent = `MRI Correction Report\n\nMethod: ${correctionMethod}\nDistortion Severity: ${distortionSeverity}%\nDate: ${new Date().toLocaleDateString()}`;
+                        const blob = new Blob([reportContent], { type: 'text/plain' });
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `report_${Date.now()}.txt`;
+                        link.click();
+                        URL.revokeObjectURL(link.href);
+                      }}
+                    >
                       Generate Report
                     </Button>
                   </>
