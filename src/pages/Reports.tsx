@@ -27,6 +27,41 @@ const Reports = () => {
       severity: "28%",
       status: "Completed",
     },
+    {
+      id: 4,
+      date: "2025-01-26",
+      method: "Grid-Based Warping",
+      severity: "31%",
+      status: "Completed",
+    },
+    {
+      id: 5,
+      date: "2025-01-25",
+      method: "Radial Basis Function",
+      severity: "38%",
+      status: "Completed",
+    },
+    {
+      id: 6,
+      date: "2025-01-24",
+      method: "AI-Based Correction",
+      severity: "45%",
+      status: "Completed",
+    },
+    {
+      id: 7,
+      date: "2025-01-23",
+      method: "Bilinear Transformation",
+      severity: "29%",
+      status: "Completed",
+    },
+    {
+      id: 8,
+      date: "2025-01-22",
+      method: "Polynomial Mapping",
+      severity: "33%",
+      status: "Completed",
+    },
   ];
 
   return (

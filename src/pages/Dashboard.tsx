@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Brain, Upload, History, MapPin, FileText, Settings } from "lucide-react";
+import { Brain, Upload, History, MapPin, FileText, Settings, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import barrelImg from "@/assets/distortion_barrel.jpg";
 import pincushionImg from "@/assets/distortion_pincushion.jpg";
@@ -69,12 +69,12 @@ const Dashboard = () => {
             </Card>
           </Link>
 
-          <Link to="/reports">
+          <Link to="/educate">
             <Card className="p-6 hover:shadow-[var(--shadow-medical)] transition-shadow cursor-pointer group">
-              <FileText className="h-12 w-12 text-accent mb-4 group-hover:scale-110 transition-transform" />
-              <h3 className="text-xl font-semibold mb-2">Reports</h3>
+              <BookOpen className="h-12 w-12 text-secondary mb-4 group-hover:scale-110 transition-transform" />
+              <h3 className="text-xl font-semibold mb-2">Education Center</h3>
               <p className="text-muted-foreground text-sm">
-                Access correction reports
+                Learn about MRI distortions
               </p>
             </Card>
           </Link>

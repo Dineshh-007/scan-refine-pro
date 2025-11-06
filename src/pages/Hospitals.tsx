@@ -306,15 +306,20 @@ const Hospitals = () => {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mb-3">{hospital.address}</p>
-                      <Button variant="medical" size="sm" asChild className="w-full">
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${hospital.lat},${hospital.lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Navigation className="mr-2 h-4 w-4" />
-                          Get Directions
-                        </a>
+                      <Button 
+                        variant="medical" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => {
+                          window.open(
+                            `https://www.google.com/maps/dir/?api=1&destination=${hospital.lat},${hospital.lng}`,
+                            '_blank',
+                            'noopener,noreferrer'
+                          );
+                        }}
+                      >
+                        <Navigation className="mr-2 h-4 w-4" />
+                        Get Directions
                       </Button>
                     </Card>
                   ))}
