@@ -72,7 +72,7 @@ const Educate = () => {
   ];
 
   const emergencyContacts = [
-    { name: "Emergency Medical Services", number: "911", description: "Immediate life-threatening emergencies" },
+    { name: "Emergency Medical Services", number: "112", description: "Immediate life-threatening emergencies" },
     { name: "National Health Helpline", number: "1-800-232-4636", description: "24/7 medical advice and guidance" },
     { name: "Poison Control", number: "1-800-222-1222", description: "Poisoning emergencies and information" },
     { name: "Mental Health Crisis Line", number: "988", description: "24/7 mental health crisis support" },
