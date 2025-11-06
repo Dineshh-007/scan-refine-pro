@@ -203,7 +203,7 @@ const Educate = () => {
             </div>
             <div className="mt-6 p-4 bg-yellow-100/50 dark:bg-yellow-900/20 rounded-lg border border-yellow-300 dark:border-yellow-700">
               <p className="text-sm font-medium text-yellow-900 dark:text-yellow-200">
-                ⚠️ In case of a medical emergency, always call 911 first for immediate assistance.
+                ⚠️ In case of a medical emergency, always call 108 first for immediate assistance.
               </p>
             </div>
           </Card>
