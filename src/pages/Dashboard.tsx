@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import barrelImg from "@/assets/distortion_barrel.jpg";
 import pincushionImg from "@/assets/distortion_pincushion.jpg";
 import waveImg from "@/assets/distortion_wave.jpg";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   return (
@@ -22,9 +23,15 @@ const Dashboard = () => {
                 <Settings className="h-5 w-5" />
               </Button>
             </Link>
-            <Link to="/auth">
-              <Button variant="outline">Logout</Button>
-            </Link>
+            <Button 
+              variant="outline"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/auth';
+              }}
+            >
+              Logout
+            </Button>
           </div>
         </div>
       </header>

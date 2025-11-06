@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Brain } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -15,19 +16,83 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate("/dashboard");
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        navigate("/dashboard");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Placeholder for authentication logic
-    setTimeout(() => {
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          toast({
+            title: "Login Failed",
+            description: error.message,
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+
+        toast({
+          title: "Login Successful",
+          description: "Welcome back to MRI Corrector Pro",
+        });
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`
+          }
+        });
+
+        if (error) {
+          toast({
+            title: "Sign Up Failed",
+            description: error.message,
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+
+        toast({
+          title: "Account Created",
+          description: "Welcome to MRI Corrector Pro! You can now sign in.",
+        });
+        setIsLogin(true);
+      }
+    } catch (error: any) {
       toast({
-        title: isLogin ? "Login Successful" : "Account Created",
-        description: "Welcome to MRI Corrector Pro",
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive"
       });
+    } finally {
       setLoading(false);
-      navigate("/dashboard");
-    }, 1500);
+    }
   };
 
   return (
