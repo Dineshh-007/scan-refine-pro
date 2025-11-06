@@ -14,7 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      corrections: {
+        Row: {
+          corrected_image_url: string
+          correction_method: string
+          created_at: string | null
+          distortion_severity: string
+          distortion_type: string | null
+          id: string
+          notes: string | null
+          original_image_url: string
+          processing_time_ms: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          corrected_image_url: string
+          correction_method: string
+          created_at?: string | null
+          distortion_severity: string
+          distortion_type?: string | null
+          id?: string
+          notes?: string | null
+          original_image_url: string
+          processing_time_ms?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          corrected_image_url?: string
+          correction_method?: string
+          created_at?: string | null
+          distortion_severity?: string
+          distortion_type?: string | null
+          id?: string
+          notes?: string | null
+          original_image_url?: string
+          processing_time_ms?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
