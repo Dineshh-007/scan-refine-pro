@@ -37,7 +37,12 @@ const Landing = () => {
     },
   ];
 
-  const team = ["Arjun", "Boophesh", "Dinesh", "Iniyan", "Sudharshan"];
+  const team = [
+    { name: "Yamuna", role: "Faculty" },
+    { name: "Dinesh", role: "Developer" },
+    { name: "Arjun", role: "Developer" },
+    { name: "Poovarasan", role: "Developer" },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
@@ -126,10 +131,10 @@ const Landing = () => {
           {team.map((member, index) => (
             <Card key={index} className="p-6 text-center min-w-[150px] hover:shadow-[var(--shadow-medical)] transition-shadow">
               <div className="w-16 h-16 rounded-full bg-gradient-to-r from-primary to-accent mx-auto mb-4 flex items-center justify-center text-white text-2xl font-bold">
-                {member[0]}
+                {member.name[0]}
               </div>
-              <h3 className="font-semibold text-lg">{member}</h3>
-              <p className="text-sm text-muted-foreground">Developer</p>
+              <h3 className="font-semibold text-lg">{member.name}</h3>
+              <p className="text-sm text-muted-foreground">{member.role}</p>
             </Card>
           ))}
         </div>
