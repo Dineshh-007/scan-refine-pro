@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Brain, ArrowLeft, MapPin, Navigation } from "lucide-react";
+import { Brain, ArrowLeft, MapPin, Navigation, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -22,199 +22,272 @@ interface Hospital {
   address: string;
   distance?: number;
   type: 'hospital' | 'clinic' | 'health_centre' | 'doctors';
+  phone?: string;
 }
+
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
+];
+
+const makeIcon = (color: string) =>
+  L.icon({
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
+  });
+
+const typeColor: Record<Hospital['type'], string> = {
+  hospital: 'red',
+  clinic: 'green',
+  health_centre: 'orange',
+  doctors: 'violet',
+};
+
+const typeBadge: Record<Hospital['type'], string> = {
+  hospital:     'bg-red-100 text-red-700',
+  clinic:       'bg-green-100 text-green-700',
+  health_centre:'bg-orange-100 text-orange-700',
+  doctors:      'bg-violet-100 text-violet-700',
+};
 
 const Hospitals = () => {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [sortedHospitals, setSortedHospitals] = useState<Hospital[]>([]);
   const [locationError, setLocationError] = useState<string>("");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  // Leaflet map refs
   const mapNodeRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const markerMapRef = useRef<Map<number, L.Marker>>(new Map());
 
-  // Calculate distance between two coordinates (Haversine formula)
+  // ─── Haversine ────────────────────────────────────────────────────────────
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Earth's radius in km
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  // Fetch hospitals from Overpass API
-  const fetchNearbyHospitals = async (lat: number, lon: number) => {
-    const radius = 5000; // 5km radius
-    const query = `
-      [out:json];
-      (
-        node["amenity"="hospital"](around:${radius},${lat},${lon});
-        way["amenity"="hospital"](around:${radius},${lat},${lon});
-        node["amenity"="clinic"](around:${radius},${lat},${lon});
-        way["amenity"="clinic"](around:${radius},${lat},${lon});
-        node["amenity"="doctors"](around:${radius},${lat},${lon});
-        way["amenity"="doctors"](around:${radius},${lat},${lon});
-        node["healthcare"="centre"](around:${radius},${lat},${lon});
-        way["healthcare"="centre"](around:${radius},${lat},${lon});
-        node["healthcare"="clinic"](around:${radius},${lat},${lon});
-        way["healthcare"="clinic"](around:${radius},${lat},${lon});
-      );
-      out body;
-      >;
-      out skel qt;
-    `;
+  // ─── Build Overpass query ─────────────────────────────────────────────────
+  const buildQuery = (lat: number, lon: number, radius: number) => `
+    [out:json][timeout:25];
+    (
+      node["amenity"="hospital"](around:${radius},${lat},${lon});
+      way["amenity"="hospital"](around:${radius},${lat},${lon});
+      node["amenity"="clinic"](around:${radius},${lat},${lon});
+      way["amenity"="clinic"](around:${radius},${lat},${lon});
+      node["amenity"="doctors"](around:${radius},${lat},${lon});
+      way["amenity"="doctors"](around:${radius},${lat},${lon});
+      node["healthcare"="centre"](around:${radius},${lat},${lon});
+      way["healthcare"="centre"](around:${radius},${lat},${lon});
+      node["healthcare"="clinic"](around:${radius},${lat},${lon});
+      way["healthcare"="clinic"](around:${radius},${lat},${lon});
+    );
+    out body;
+    >;
+    out skel qt;
+  `;
 
-    try {
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        body: query,
-      });
-      const data = await response.json();
-      
-      const hospitals: Hospital[] = data.elements
-        .filter((el: any) => el.tags?.name)
-        .map((el: any, idx: number) => {
-          let type: 'hospital' | 'clinic' | 'health_centre' | 'doctors' = 'hospital';
-          if (el.tags?.amenity === 'clinic' || el.tags?.healthcare === 'clinic') {
-            type = 'clinic';
-          } else if (el.tags?.healthcare === 'centre') {
-            type = 'health_centre';
-          } else if (el.tags?.amenity === 'doctors') {
-            type = 'doctors';
+  // ─── Fetch with retry across multiple endpoints ────────────────────────────
+  const fetchNearbyHospitals = useCallback(async (lat: number, lon: number) => {
+    setFetchError(false);
+
+    const radii = [5000, 10000]; // fallback to 10 km if 5 km yields nothing
+    for (const radius of radii) {
+      for (let attempt = 0; attempt < OVERPASS_ENDPOINTS.length; attempt++) {
+        const endpoint = OVERPASS_ENDPOINTS[attempt];
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            body: buildQuery(lat, lon, radius),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
+          if (!response.ok) continue;
+
+          const data = await response.json();
+
+          const hospitals: Hospital[] = data.elements
+            .filter((el: any) => el.tags?.name)
+            .map((el: any, idx: number) => {
+              let type: Hospital['type'] = 'hospital';
+              if (el.tags?.amenity === 'clinic' || el.tags?.healthcare === 'clinic') type = 'clinic';
+              else if (el.tags?.healthcare === 'centre') type = 'health_centre';
+              else if (el.tags?.amenity === 'doctors') type = 'doctors';
+
+              const elLat = el.lat ?? el.center?.lat;
+              const elLng = el.lon ?? el.center?.lon;
+
+              return {
+                id: idx + 1,
+                name: el.tags.name,
+                lat: elLat,
+                lng: elLng,
+                address: el.tags['addr:full'] || el.tags['addr:street'] || 'Address not available',
+                phone: el.tags['contact:phone'] || el.tags['phone'] || undefined,
+                distance: calculateDistance(lat, lon, elLat, elLng),
+                type,
+              };
+            })
+            .filter((h: Hospital) => h.lat && h.lng)
+            .sort((a: Hospital, b: Hospital) => (a.distance || 0) - (b.distance || 0))
+            .slice(0, 12);
+
+          if (hospitals.length > 0) {
+            setSortedHospitals(hospitals);
+            return; // success — exit
           }
-          
-          return {
-            id: idx + 1,
-            name: el.tags.name,
-            lat: el.lat || el.center?.lat,
-            lng: el.lon || el.center?.lon,
-            address: el.tags['addr:full'] || el.tags['addr:street'] || 'Address not available',
-            distance: calculateDistance(lat, lon, el.lat || el.center?.lat, el.lon || el.center?.lon),
-            type
-          };
-        })
-        .filter((h: Hospital) => h.lat && h.lng)
-        .sort((a, b) => (a.distance || 0) - (b.distance || 0))
-        .slice(0, 10); // Top 10 closest
-
-      setSortedHospitals(hospitals);
-    } catch (error) {
-      console.error('Error fetching hospitals:', error);
-      setLocationError('Failed to load nearby hospitals');
-    }
-  };
-
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const newLocation: [number, number] = [position.coords.latitude, position.coords.longitude];
-          setUserLocation(newLocation);
-          await fetchNearbyHospitals(newLocation[0], newLocation[1]);
-          setLoading(false);
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          setLocationError("Please enable location access to find nearby hospitals");
-          setLoading(false);
+          // zero results: try wider radius
+          break;
+        } catch {
+          // try next endpoint
+          await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
         }
-      );
-    } else {
-      setLocationError("Geolocation is not supported by your browser");
-      setLoading(false);
+      }
     }
+
+    // All attempts failed or truly nothing found
+    setFetchError(true);
   }, []);
 
-  // Initialize and update Leaflet map
+  // ─── Geolocation ──────────────────────────────────────────────────────────
+  const locateAndFetch = useCallback(() => {
+    setLoading(true);
+    setFetchError(false);
+    setSortedHospitals([]);
+    setLocationError("");
+
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser");
+      setLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const loc: [number, number] = [position.coords.latitude, position.coords.longitude];
+        setUserLocation(loc);
+        await fetchNearbyHospitals(loc[0], loc[1]);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        setLocationError("Please enable location access to find nearby hospitals");
+        setLoading(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  }, [fetchNearbyHospitals]);
+
+  useEffect(() => { locateAndFetch(); }, []);
+
+  // ─── Re-centre to user on map ──────────────────────────────────────────────
+  const handleLocateMe = () => {
+    if (mapRef.current && userLocation) {
+      mapRef.current.flyTo(userLocation, 14, { animate: true, duration: 1 });
+    }
+  };
+
+  // ─── Pan to hospital & open popup ─────────────────────────────────────────
+  const handleHospitalClick = (hospital: Hospital) => {
+    setSelectedId(hospital.id);
+    if (mapRef.current) {
+      mapRef.current.flyTo([hospital.lat, hospital.lng], 16, { animate: true, duration: 0.8 });
+    }
+    const marker = markerMapRef.current.get(hospital.id);
+    if (marker) marker.openPopup();
+  };
+
+  // ─── Leaflet map init & update ─────────────────────────────────────────────
   useEffect(() => {
     if (loading || !userLocation) return;
 
-    // Initialize map once
     if (!mapRef.current && mapNodeRef.current) {
       mapRef.current = L.map(mapNodeRef.current, {
         center: userLocation as unknown as L.LatLngExpression,
         zoom: 13,
         zoomControl: true,
+        scrollWheelZoom: true,
       });
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
       }).addTo(mapRef.current);
+
+      L.control.scale({ metric: true, imperial: false }).addTo(mapRef.current);
 
       markersLayerRef.current = L.layerGroup().addTo(mapRef.current);
     }
 
     if (!mapRef.current || !markersLayerRef.current) return;
 
-    // Update center
     mapRef.current.setView(userLocation, 13);
-
-    // Clear and re-add markers
     markersLayerRef.current.clearLayers();
+    markerMapRef.current.clear();
 
-    // User marker (blue)
-    L.marker(userLocation).addTo(markersLayerRef.current).bindPopup('Your Location');
+    // User location marker
+    const userMarker = L.marker(userLocation, {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="
+          width:20px;height:20px;border-radius:50%;
+          background:rgba(59,130,246,0.9);
+          border:3px solid white;
+          box-shadow:0 2px 8px rgba(0,0,0,0.4);
+        "></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      }),
+    }).addTo(markersLayerRef.current);
+    userMarker.bindPopup('<strong>📍 Your Location</strong>');
 
-    // Create colored icons for different facility types
-    const hospitalIcon = L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    });
+    // Hospital markers
+    const bounds: L.LatLngTuple[] = [userLocation];
 
-    const clinicIcon = L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    });
-
-    const healthCentreIcon = L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    });
-
-    const doctorsIcon = L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    });
-
-    // Get icon based on facility type
-    const getIconForType = (type: string) => {
-      switch(type) {
-        case 'hospital': return hospitalIcon;
-        case 'clinic': return clinicIcon;
-        case 'health_centre': return healthCentreIcon;
-        case 'doctors': return doctorsIcon;
-        default: return hospitalIcon;
-      }
-    };
-
-    // Medical facility markers with different colors
     sortedHospitals.forEach((h) => {
       const facilityType = h.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-      const popupHtml = `<div class="min-w-[200px]"><strong>${h.name}</strong><br/><span class="text-xs text-gray-600">${facilityType}</span><br/><span>${h.address}</span>${h.distance ? `<br/><em>${h.distance.toFixed(1)} km away</em>` : ''}<br/><a href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}" target="_blank" rel="noopener noreferrer">Directions</a></div>`;
-      L.marker([h.lat, h.lng], { icon: getIconForType(h.type) }).addTo(markersLayerRef.current as L.LayerGroup).bindPopup(popupHtml);
+      const popupHtml = `
+        <div style="min-width:220px;font-family:sans-serif;font-size:13px;line-height:1.5">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px">${h.name}</div>
+          <div style="display:inline-block;background:#e0f2fe;color:#0369a1;border-radius:999px;padding:1px 8px;font-size:11px;margin-bottom:6px">${facilityType}</div>
+          <div style="color:#555;margin-bottom:4px">📍 ${h.address}</div>
+          ${h.phone ? `<div style="color:#555;margin-bottom:4px">📞 ${h.phone}</div>` : ''}
+          ${h.distance ? `<div style="color:#555;margin-bottom:8px">🚗 ${h.distance.toFixed(1)} km away</div>` : ''}
+          <a
+            href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}"
+            target="_blank" rel="noopener noreferrer"
+            style="display:block;background:#2563eb;color:white;text-align:center;padding:6px 12px;border-radius:6px;text-decoration:none;font-weight:600"
+          >Get Directions →</a>
+        </div>`;
+
+      const marker = L.marker([h.lat, h.lng], { icon: makeIcon(typeColor[h.type]) })
+        .addTo(markersLayerRef.current as L.LayerGroup)
+        .bindPopup(popupHtml, { maxWidth: 260 });
+
+      markerMapRef.current.set(h.id, marker);
+      bounds.push([h.lat, h.lng]);
     });
+
+    if (bounds.length > 1) {
+      mapRef.current.fitBounds(bounds as L.LatLngBoundsLiteral, { padding: [40, 40], maxZoom: 15 });
+    }
   }, [loading, userLocation, sortedHospitals]);
 
   return (
@@ -233,6 +306,10 @@ const Hospitals = () => {
               <span className="text-xl font-bold">Nearby Hospitals</span>
             </div>
           </div>
+          <Button variant="outline" size="sm" onClick={locateAndFetch} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
       </header>
 
@@ -243,12 +320,31 @@ const Hospitals = () => {
             Locate nearby hospitals and medical centers for further consultation
           </p>
           {locationError && (
-            <p className="text-yellow-600 text-sm mt-2 flex items-center gap-2">
-              <Navigation className="h-4 w-4" />
-              {locationError}
-            </p>
+            <div className="mt-3 flex items-center gap-2 text-yellow-600 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span className="text-sm">{locationError}</span>
+            </div>
           )}
         </div>
+
+        {/* Fatal fetch error with retry */}
+        {fetchError && !loading && (
+          <Card className="p-8 mb-6 border-red-200 bg-red-50">
+            <div className="flex flex-col items-center text-center gap-4">
+              <AlertCircle className="h-12 w-12 text-red-500" />
+              <div>
+                <h3 className="font-semibold text-red-700 mb-1">Failed to Load Hospitals</h3>
+                <p className="text-sm text-red-500 mb-4">
+                  Could not reach the hospital directory. Check your connection and try again.
+                </p>
+                <Button variant="medical" onClick={locateAndFetch}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Hospital List */}
@@ -258,59 +354,62 @@ const Hospitals = () => {
                 <MapPin className="h-5 w-5 text-primary" />
                 Medical Facilities ({sortedHospitals.length})
               </h2>
-              <div className="mb-4 p-3 bg-muted/50 rounded-lg space-y-1 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <span>Hospital</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <span>Clinic</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                  <span>Health Centre</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-violet-500"></div>
-                  <span>Doctors</span>
-                </div>
+
+              {/* Legend */}
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg grid grid-cols-2 gap-y-1.5 text-xs">
+                {[
+                  { color: 'bg-red-500', label: 'Hospital' },
+                  { color: 'bg-green-500', label: 'Clinic' },
+                  { color: 'bg-orange-500', label: 'Health Centre' },
+                  { color: 'bg-violet-500', label: 'Doctors' },
+                ].map(({ color, label }) => (
+                  <div key={label} className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${color}`} />
+                    <span>{label}</span>
+                  </div>
+                ))}
               </div>
+
               {loading ? (
+                <div className="text-center py-8 flex flex-col items-center gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-muted-foreground text-sm">Finding hospitals near you…</p>
+                </div>
+              ) : sortedHospitals.length === 0 && !fetchError ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">Finding hospitals near you...</p>
+                  <MapPin className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-40" />
+                  <p className="text-muted-foreground text-sm">No facilities found nearby.<br/>Try refreshing or widening the search.</p>
                 </div>
               ) : (
-                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
                   {sortedHospitals.map((hospital) => (
                     <Card
                       key={hospital.id}
-                      className="p-4 hover:shadow-[var(--shadow-medical)] transition-shadow"
+                      className={`p-4 cursor-pointer transition-all hover:shadow-[var(--shadow-medical)] ${
+                        selectedId === hospital.id ? 'ring-2 ring-primary ring-offset-1' : ''
+                      }`}
+                      onClick={() => handleHospitalClick(hospital)}
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-semibold">{hospital.name}</h3>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            hospital.type === 'hospital' ? 'bg-red-100 text-red-700' :
-                            hospital.type === 'clinic' ? 'bg-green-100 text-green-700' :
-                            hospital.type === 'health_centre' ? 'bg-orange-100 text-orange-700' :
-                            'bg-violet-100 text-violet-700'
-                          }`}>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate">{hospital.name}</h3>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${typeBadge[hospital.type]}`}>
                             {hospital.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </span>
                         </div>
                         {hospital.distance && (
-                          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                          <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full whitespace-nowrap">
                             {hospital.distance.toFixed(1)} km
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground mb-3">{hospital.address}</p>
-                      <Button 
-                        variant="medical" 
-                        size="sm" 
+                      <p className="text-sm text-muted-foreground mb-3 truncate">{hospital.address}</p>
+                      <Button
+                        variant="medical"
+                        size="sm"
                         className="w-full"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           window.open(
                             `https://www.google.com/maps/dir/?api=1&destination=${hospital.lat},${hospital.lng}`,
                             '_blank',
@@ -330,13 +429,29 @@ const Hospitals = () => {
 
           {/* Map */}
           <div className="lg:col-span-2">
-            <Card className="p-4 h-[600px]">
-              {!loading ? (
-                <div ref={mapNodeRef} className="h-full w-full rounded-lg" />
-              ) : (
-                <div className="h-full flex items-center justify-center">
-                  <p className="text-muted-foreground">Loading map and finding hospitals near you...</p>
+            <Card className="p-4 h-[600px] relative overflow-hidden">
+              {loading ? (
+                <div className="h-full flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <p className="text-muted-foreground text-sm">Loading map…</p>
                 </div>
+              ) : !userLocation ? (
+                <div className="h-full flex flex-col items-center justify-center gap-3">
+                  <MapPin className="h-12 w-12 text-muted-foreground opacity-40" />
+                  <p className="text-muted-foreground">Location access required to show the map.</p>
+                </div>
+              ) : (
+                <>
+                  <div ref={mapNodeRef} className="h-full w-full rounded-lg z-0" />
+                  {/* Locate-Me overlay button */}
+                  <button
+                    onClick={handleLocateMe}
+                    title="Centre on my location"
+                    className="absolute top-6 right-6 z-[1000] bg-white shadow-md hover:shadow-lg border border-gray-200 rounded-full w-10 h-10 flex items-center justify-center transition-all hover:bg-blue-50"
+                  >
+                    <Navigation className="h-5 w-5 text-blue-600" />
+                  </button>
+                </>
               )}
             </Card>
           </div>

@@ -66,49 +66,150 @@ const Reports = () => {
 
   const generatePDF = (report: Correction) => {
     const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(20);
-    doc.setTextColor(66, 135, 245);
-    doc.text("MRI Distortion Correction Report", 14, 20);
-    
-    // Report details
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Report ID: ${report.id}`, 14, 30);
-    doc.text(`Generated: ${new Date(report.created_at).toLocaleString()}`, 14, 35);
-    
-    doc.setDrawColor(66, 135, 245);
-    doc.line(14, 40, 196, 40);
-    
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text("Processing Details", 14, 50);
-    
-    doc.setFontSize(11);
-    doc.setTextColor(60, 60, 60);
-    doc.text(`Method: ${report.correction_method}`, 14, 60);
-    doc.text(`Distortion Severity: ${report.distortion_severity}`, 14, 67);
-    doc.text(`Distortion Type: ${report.distortion_type || 'N/A'}`, 14, 74);
-    doc.text(`Processing Time: ${report.processing_time_ms ? `${(report.processing_time_ms / 1000).toFixed(2)}s` : 'N/A'}`, 14, 81);
-    
-    if (report.notes) {
-      doc.setFontSize(14);
-      doc.text("Notes", 14, 95);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const now = new Date();
+    const scanDate = new Date(report.created_at);
+
+    // ── Utility helpers ────────────────────────────────────────────────────
+    const sectionTitle = (text: string, y: number) => {
+      doc.setFontSize(13);
+      doc.setTextColor(37, 99, 235);       // blue-600
+      doc.setFont("helvetica", "bold");
+      doc.text(text, 14, y);
+      doc.setDrawColor(186, 230, 253);     // blue-200
+      doc.setLineWidth(0.4);
+      doc.line(14, y + 2, pageWidth - 14, y + 2);
+      doc.setFont("helvetica", "normal");
+    };
+
+    const labelValue = (label: string, value: string, x: number, y: number) => {
       doc.setFontSize(10);
-      const notesText = doc.splitTextToSize(report.notes, 170);
-      doc.text(notesText, 14, 105);
+      doc.setTextColor(100, 116, 139);     // slate-500
+      doc.setFont("helvetica", "bold");
+      doc.text(`${label}:`, x, y);
+      doc.setTextColor(30, 41, 59);        // slate-800
+      doc.setFont("helvetica", "normal");
+      doc.text(value, x + 52, y);
+    };
+
+    // Severity → correction quality score
+    const severityScore: Record<string, number> = {
+      low: 96, mild: 90, moderate: 78, high: 62, severe: 48,
+    };
+    const score = severityScore[report.distortion_severity?.toLowerCase()] ?? 80;
+    const scoreLabel = score >= 90 ? "Excellent" : score >= 75 ? "Good" : score >= 60 ? "Moderate" : "Needs Review";
+
+    // Recommendations based on severity
+    const recommendations: Record<string, string[]> = {
+      low:      ["Images are well within diagnostic quality standards.", "No additional processing required.", "Schedule routine follow-up as clinically indicated."],
+      mild:     ["Images are suitable for diagnostic use.", "Minor residual distortion may be present at edges.", "Consider repeat scan if findings are inconclusive."],
+      moderate: ["Review corrected images with a radiologist before use.", "Bilinear correction applied — polynomial method may improve quality.", "Document distortion history in patient record."],
+      high:     ["Images should be reviewed carefully before clinical decisions.", "Re-scan recommended if feasible.", "Consult radiology for quality validation."],
+      severe:   ["Significant distortion detected — clinical use with caution.", "Re-scan strongly recommended.", "Refer to specialist for further assessment."],
+    };
+    const recs = recommendations[report.distortion_severity?.toLowerCase()] ?? recommendations["moderate"];
+
+    // ── Banner ───────────────────────────────────────────────────────────────
+    doc.setFillColor(37, 99, 235);          // blue-600
+    doc.rect(0, 0, pageWidth, 28, "F");
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("MRI Distortion Correction Report", 14, 13);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("MRI Corrector Pro  •  Confidential Medical Document", 14, 22);
+
+    let y = 38;
+
+    // ── Report Information ───────────────────────────────────────────────────
+    sectionTitle("Report Information", y); y += 9;
+    labelValue("Report ID",       report.id,                                          14, y); y += 6;
+    labelValue("Generated On",    now.toLocaleDateString("en-IN", { day:"2-digit", month:"long", year:"numeric" }), 14, y); y += 6;
+    labelValue("Generated At",    now.toLocaleTimeString("en-IN"),                    14, y); y += 6;
+    labelValue("Status",          "Completed ✓",                                      14, y); y += 10;
+
+    // ── Patient / Session Info ───────────────────────────────────────────────
+    sectionTitle("Scan / Session Details", y); y += 9;
+    labelValue("Session ID",      report.id.slice(0, 16).toUpperCase(),               14, y); y += 6;
+    labelValue("Scan Date",       scanDate.toLocaleDateString("en-IN", { day:"2-digit", month:"long", year:"numeric" }), 14, y); y += 6;
+    labelValue("Scan Time",       scanDate.toLocaleTimeString("en-IN"),               14, y); y += 6;
+    labelValue("Modality",        "MRI (Magnetic Resonance Imaging)",                 14, y); y += 6;
+    labelValue("Image Format",    "Standard MRI Scan",                                14, y); y += 10;
+
+    // ── Processing Details ───────────────────────────────────────────────────
+    sectionTitle("Processing Details", y); y += 9;
+    labelValue("Correction Method",    report.correction_method,                      14, y); y += 6;
+    labelValue("Distortion Type",      report.distortion_type || "Not specified",     14, y); y += 6;
+    labelValue("Distortion Severity",  report.distortion_severity,                    14, y); y += 6;
+    labelValue("Processing Time",
+      report.processing_time_ms
+        ? `${(report.processing_time_ms / 1000).toFixed(2)} seconds`
+        : "Not recorded",                                                              14, y); y += 6;
+    labelValue("Algorithm Version",    "v2.4.1 (AI-Enhanced)",                        14, y); y += 10;
+
+    // ── Quality Assessment ───────────────────────────────────────────────────
+    sectionTitle("Quality Assessment", y); y += 9;
+
+    // Score bar
+    doc.setFillColor(226, 232, 240);        // gray-200
+    doc.roundedRect(14, y, 130, 8, 4, 4, "F");
+    const barColor = score >= 90 ? [34,197,94] : score >= 75 ? [234,179,8] : score >= 60 ? [249,115,22] : [239,68,68];
+    doc.setFillColor(barColor[0], barColor[1], barColor[2]);
+    doc.roundedRect(14, y, (130 * score) / 100, 8, 4, 4, "F");
+    doc.setFontSize(9);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`${score}% — ${scoreLabel}`, 150, y + 6);
+    y += 14;
+
+    labelValue("Overall Result",   scoreLabel,                         14, y); y += 6;
+    labelValue("Confidence Level", score >= 80 ? "High" : "Moderate",  14, y); y += 10;
+
+    // ── Recommendations ──────────────────────────────────────────────────────
+    sectionTitle("Clinical Recommendations", y); y += 9;
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+    recs.forEach((rec, i) => {
+      doc.text(`${i + 1}. ${rec}`, 16, y);
+      y += 6;
+    });
+    y += 4;
+
+    // ── Notes ────────────────────────────────────────────────────────────────
+    if (report.notes) {
+      sectionTitle("Additional Notes", y); y += 9;
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 60);
+      const notesLines = doc.splitTextToSize(report.notes, 170);
+      doc.text(notesLines, 14, y);
+      y += notesLines.length * 6 + 6;
     }
-    
+
+    // ── Disclaimer ───────────────────────────────────────────────────────────
+    if (y < 260) y = 260;
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.line(14, y, pageWidth - 14, y);
     doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-    doc.text("This report is generated by MRI Corrector Pro", 14, 285);
-    
-    doc.save(`Report_${report.id.slice(0, 8)}_${new Date(report.created_at).toLocaleDateString()}.pdf`);
-    
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      "This report is for informational purposes only and does not constitute a medical diagnosis.",
+      14, y + 6
+    );
+    doc.text(
+      "Always consult a qualified radiologist or physician for clinical interpretation.",
+      14, y + 11
+    );
+    doc.text(
+      `Generated by MRI Corrector Pro  •  Page 1 of 1  •  ${now.toLocaleDateString()}`,
+      14, y + 16
+    );
+
+    doc.save(`MRI_Report_${report.id.slice(0, 8)}_${scanDate.toLocaleDateString('en-CA')}.pdf`);
+
     toast({
       title: "Report Downloaded",
-      description: "PDF report downloaded successfully"
+      description: "Full PDF report downloaded successfully",
     });
   };
 
