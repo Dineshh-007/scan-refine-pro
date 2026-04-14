@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Brain, ImageIcon, MapPin, FileText, Zap, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
+import GuidedBreathing from "@/components/GuidedBreathing";
 
 const Landing = () => {
   const features = [
@@ -139,6 +140,9 @@ const Landing = () => {
           ))}
         </div>
       </section>
+
+      {/* Guided Breathing Section */}
+      <GuidedBreathing />
 
       {/* CTA Section */}
       <section className="container mx-auto px-4 py-20 text-center">
