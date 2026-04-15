@@ -10,6 +10,8 @@ import Process from "./pages/Process";
 import Hospitals from "./pages/Hospitals";
 import Reports from "./pages/Reports";
 import Educate from "./pages/Educate";
+import Breathing from "./pages/Breathing";
+import MacroTracker from "./pages/MacroTracker";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ const App = () => (
           <Route path="/hospitals" element={<Hospitals />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/educate" element={<Educate />} />
+          <Route path="/breathing" element={<Breathing />} />
+          <Route path="/macro-tracker" element={<MacroTracker />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

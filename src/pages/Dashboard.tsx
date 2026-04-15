@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Brain, Upload, History, MapPin, FileText, Settings, BookOpen } from "lucide-react";
+import { Brain, Upload, History, MapPin, FileText, Settings, BookOpen, Wind, BarChart2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import barrelImg from "@/assets/distortion_barrel.jpg";
 import pincushionImg from "@/assets/distortion_pincushion.jpg";
@@ -82,6 +82,26 @@ const Dashboard = () => {
               <h3 className="text-xl font-semibold mb-2">Education Center</h3>
               <p className="text-muted-foreground text-sm">
                 Learn about MRI distortions
+              </p>
+            </Card>
+          </Link>
+
+          <Link to="/breathing">
+            <Card className="p-6 hover:shadow-[var(--shadow-medical)] transition-shadow cursor-pointer group border-sky-500/20 hover:border-sky-400/40">
+              <Wind className="h-12 w-12 text-sky-400 mb-4 group-hover:scale-110 transition-transform" />
+              <h3 className="text-xl font-semibold mb-2">Breathing Technique</h3>
+              <p className="text-muted-foreground text-sm">
+                Calm your mind with 4-7-8 breathing
+              </p>
+            </Card>
+          </Link>
+
+          <Link to="/macro-tracker">
+            <Card className="p-6 hover:shadow-[var(--shadow-medical)] transition-shadow cursor-pointer group border-emerald-500/20 hover:border-emerald-400/40">
+              <BarChart2 className="h-12 w-12 text-emerald-400 mb-4 group-hover:scale-110 transition-transform" />
+              <h3 className="text-xl font-semibold mb-2">Macro Tracker</h3>
+              <p className="text-muted-foreground text-sm">
+                Track calories, protein &amp; wellness
               </p>
             </Card>
           </Link>
